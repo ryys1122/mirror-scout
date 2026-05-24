@@ -454,7 +454,6 @@ def download_blob_speed(mirror, image, digest, timeout, max_bytes, token=None):
     if token:
         req_headers["Authorization"] = "Bearer %s" % token
 
-    start = time.time()
     downloaded = 0
 
     r = _session.get(
@@ -469,6 +468,7 @@ def download_blob_speed(mirror, image, digest, timeout, max_bytes, token=None):
         if r.status_code != 200:
             raise RuntimeError("blob status %s" % r.status_code)
 
+        start = time.time()
         for chunk in r.iter_content(chunk_size=64 * 1024):
             if not chunk:
                 continue
@@ -627,11 +627,11 @@ def test_gh_mirror(mirror, timeout, connect_timeout, max_bytes):
             raise RuntimeError("DNS timeout")
 
         # 流式完整下载文件，模拟 wget 行为
-        start = time.time()
         r = _session.get(url, stream=True, timeout=t, allow_redirects=True)
         if r.status_code != 200:
             raise RuntimeError("GET status %s" % r.status_code)
 
+        start = time.time()
         downloaded = 0
         for chunk in r.iter_content(chunk_size=128 * 1024):
             if not chunk:
