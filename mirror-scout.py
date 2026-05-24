@@ -131,9 +131,10 @@ def normalize_mirror(url):
     return "%s://%s" % (parsed.scheme, parsed.netloc)
 
 
-# ── Docker Hub mirror scraping ──
+# ── General URL scraping ──
 
-def scrape_candidates(source_url, timeout, connect_timeout=3):
+def _scrape_url_for_mirrors(source_url, timeout, connect_timeout, host_blacklist, host_keywords, label="来源"):
+    """从网页中提取匹配关键词的镜像站 URL。"""
     mirrors = set()
 
     try:
@@ -145,7 +146,7 @@ def scrape_candidates(source_url, timeout, connect_timeout=3):
         )
         r.raise_for_status()
     except Exception as e:
-        print("抓取来源失败: %s -> %s" % (source_url, e))
+        print("抓取%s失败: %s -> %s" % (label, source_url, e))
         return mirrors
 
     text = r.text
@@ -157,35 +158,49 @@ def scrape_candidates(source_url, timeout, connect_timeout=3):
 
         host = urlparse(nm).netloc.lower()
 
-        if any(x in host for x in [
-            "github.com",
-            "githubusercontent.com",
-            "docker.com",
-            "opencontainers.org",
-            "schema.org",
-            "w3.org",
-            "google.com",
-            "baidu.com",
-        ]):
+        if any(x in host for x in host_blacklist):
             continue
 
-        if any(k in host for k in [
-            "docker",
-            "registry",
-            "mirror",
-            "hub",
-            "daocloud",
-            "1ms",
-            "xuanyuan",
-            "aliyun",
-            "tencent",
-            "netease",
-            "ustc",
-            "sjtu",
-        ]):
+        if any(k in host for k in host_keywords):
             mirrors.add(nm)
 
     return mirrors
+
+
+# ── Docker Hub mirror scraping ──
+
+_DOCKER_HOST_BLACKLIST = [
+    "github.com",
+    "githubusercontent.com",
+    "docker.com",
+    "opencontainers.org",
+    "schema.org",
+    "w3.org",
+    "google.com",
+    "baidu.com",
+]
+
+_DOCKER_HOST_KEYWORDS = [
+    "docker",
+    "registry",
+    "mirror",
+    "hub",
+    "daocloud",
+    "1ms",
+    "xuanyuan",
+    "aliyun",
+    "tencent",
+    "netease",
+    "ustc",
+    "sjtu",
+]
+
+
+def scrape_candidates(source_url, timeout, connect_timeout=3):
+    return _scrape_url_for_mirrors(
+        source_url, timeout, connect_timeout,
+        _DOCKER_HOST_BLACKLIST, _DOCKER_HOST_KEYWORDS, label="来源",
+    )
 
 
 def scrape_aityp_api(api_url, timeout, connect_timeout=3):
@@ -231,54 +246,33 @@ def scrape_aityp_api(api_url, timeout, connect_timeout=3):
 
 # ── GitHub mirror scraping ──
 
+_GH_HOST_BLACKLIST = [
+    "github.com",
+    "githubusercontent.com",
+    "google.com",
+    "baidu.com",
+    "cloudflare.com",
+]
+
+_GH_HOST_KEYWORDS = [
+    "gh",
+    "mirror",
+    "proxy",
+    "fast",
+    "git",
+    "hub",
+    "code",
+    "asset",
+    "release",
+]
+
+
 def scrape_gh_candidates(source_url, timeout, connect_timeout=3):
     """从网页中抓取 GitHub 代理/加速站 URL。"""
-    mirrors = set()
-
-    try:
-        r = _session.get(
-            source_url,
-            timeout=(connect_timeout, timeout),
-            headers={"User-Agent": HEADERS["User-Agent"]},
-            verify=True,
-        )
-        r.raise_for_status()
-    except Exception as e:
-        print("抓取 GitHub 来源失败: %s -> %s" % (source_url, e))
-        return mirrors
-
-    text = r.text
-
-    for item in URL_RE.findall(text):
-        nm = normalize_mirror(item)
-        if not nm:
-            continue
-
-        host = urlparse(nm).netloc.lower()
-
-        if any(x in host for x in [
-            "github.com",
-            "githubusercontent.com",
-            "google.com",
-            "baidu.com",
-            "cloudflare.com",
-        ]):
-            continue
-
-        if any(k in host for k in [
-            "gh",
-            "mirror",
-            "proxy",
-            "fast",
-            "git",
-            "hub",
-            "code",
-            "asset",
-            "release",
-        ]):
-            mirrors.add(nm)
-
-    return mirrors
+    return _scrape_url_for_mirrors(
+        source_url, timeout, connect_timeout,
+        _GH_HOST_BLACKLIST, _GH_HOST_KEYWORDS, label="GitHub 来源",
+    )
 
 
 # ── 错误信息简化 ──
