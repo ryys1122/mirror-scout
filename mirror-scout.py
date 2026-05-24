@@ -130,13 +130,13 @@ def normalize_mirror(url):
 
 # ── Docker Hub mirror scraping ──
 
-def scrape_candidates(source_url, timeout):
+def scrape_candidates(source_url, timeout, connect_timeout=3):
     mirrors = set()
 
     try:
         r = _session.get(
             source_url,
-            timeout=timeout,
+            timeout=(connect_timeout, timeout),
             headers={"User-Agent": HEADERS["User-Agent"]},
             verify=True,
         )
@@ -185,13 +185,13 @@ def scrape_candidates(source_url, timeout):
     return mirrors
 
 
-def scrape_aityp_api(api_url, timeout):
+def scrape_aityp_api(api_url, timeout, connect_timeout=3):
     mirrors = set()
 
     try:
         r = _session.get(
             api_url,
-            timeout=timeout,
+            timeout=(connect_timeout, timeout),
             headers={"User-Agent": HEADERS["User-Agent"]},
         )
         r.raise_for_status()
@@ -228,14 +228,14 @@ def scrape_aityp_api(api_url, timeout):
 
 # ── GitHub mirror scraping ──
 
-def scrape_gh_candidates(source_url, timeout):
+def scrape_gh_candidates(source_url, timeout, connect_timeout=3):
     """从网页中抓取 GitHub 代理/加速站 URL。"""
     mirrors = set()
 
     try:
         r = _session.get(
             source_url,
-            timeout=timeout,
+            timeout=(connect_timeout, timeout),
             headers={"User-Agent": HEADERS["User-Agent"]},
             verify=True,
         )
@@ -814,7 +814,7 @@ def main():
                 sources = GH_DEFAULT_SOURCES
 
             for source in sources:
-                mirrors.update(scrape_gh_candidates(source, args.timeout))
+                mirrors.update(scrape_gh_candidates(source, args.timeout, args.connect_timeout))
 
         mirrors = sorted(mirrors)
 
@@ -889,10 +889,10 @@ def main():
                 sources = DEFAULT_SOURCES
 
             for source in sources:
-                mirrors.update(scrape_candidates(source, args.timeout))
+                mirrors.update(scrape_candidates(source, args.timeout, args.connect_timeout))
 
             for api_url in AITYP_API_SOURCES:
-                mirrors.update(scrape_aityp_api(api_url, args.timeout))
+                mirrors.update(scrape_aityp_api(api_url, args.timeout, args.connect_timeout))
 
         mirrors = sorted(mirrors)
 
