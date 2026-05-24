@@ -18,6 +18,16 @@
 pip install requests
 ```
 
+## 安装
+
+```bash
+# 直接下载脚本
+wget https://raw.githubusercontent.com/ryys1122/mirror-scout/main/mirror-scout.py
+
+# 安装依赖
+pip install requests
+```
+
 ## 用法
 
 ### Docker 镜像站测速（默认模式）
