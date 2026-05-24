@@ -275,6 +275,34 @@ def scrape_gh_candidates(source_url, timeout):
     return mirrors
 
 
+# ── 错误信息简化 ──
+
+def _simplify_error(e):
+    """将 requests/urllib3 的长异常信息简化为可读的单行消息。"""
+    if isinstance(e, requests.exceptions.ConnectionError):
+        return "Network unreachable"
+    if isinstance(e, requests.exceptions.Timeout):
+        return "Connection timeout"
+    if isinstance(e, requests.exceptions.SSLError):
+        return "SSL error"
+
+    msg = str(e)
+
+    # 简化连接中断（IncompleteRead / Connection broken）
+    if "IncompleteRead" in msg or "Connection broken" in msg:
+        return "Connection broken (incomplete response)"
+
+    # 简化 DNS 失败
+    if "Name or service not known" in msg or "getaddrinfo" in msg.lower():
+        return "DNS resolution failed"
+
+    # 我们自己抛的 RuntimeError，保持原样
+    if "manifest status" in msg or "blob status" in msg or "digest" in msg:
+        return msg
+
+    return msg
+
+
 # ── Docker Hub mirror testing ──
 
 def get_json(resp):
@@ -507,7 +535,7 @@ def test_mirror(mirror, timeout, connect_timeout, max_bytes):
             result["error2"] = str(e)
 
     except Exception as e:
-        result["error"] = str(e)
+        result["error"] = _simplify_error(e)
 
     return result
 
@@ -615,7 +643,7 @@ def test_gh_mirror(mirror, timeout, connect_timeout, max_bytes):
         result["time"] = elapsed
 
     except Exception as e:
-        result["error"] = str(e)
+        result["error"] = _simplify_error(e)
 
     return result
 
