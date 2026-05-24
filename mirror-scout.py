@@ -29,15 +29,18 @@ _session.mount("https://", HTTPAdapter(max_retries=_retry))
 
 def quick_dns_check(url, connect_timeout):
     """用线程预检 DNS，超时直接返回 False 避免阻塞。"""
-    host = urlparse(url).hostname
+    parsed = urlparse(url)
+    host = parsed.hostname
     if not host:
         return False
+
+    port = 443 if parsed.scheme == "https" else 80
 
     result = [None]
 
     def resolve():
         try:
-            socket.getaddrinfo(host, 443)
+            socket.getaddrinfo(host, port)
             result[0] = True
         except Exception:
             result[0] = False
