@@ -686,6 +686,59 @@ def save_mirror_file(path, ok_results, old_mirrors):
     return len(survivors), len(newcomers)
 
 
+# ── Shared test orchestration ──
+
+def run_concurrent_tests(mirrors, test_func, print_func, timeout, connect_timeout, max_bytes, workers):
+    """并发测试镜像站，实时打印结果，返回全部结果列表。"""
+    results = []
+
+    executor = cf.ThreadPoolExecutor(max_workers=workers)
+    try:
+        futures = []
+        for mirror in mirrors:
+            futures.append(
+                executor.submit(test_func, mirror, timeout, connect_timeout, max_bytes)
+            )
+
+        for fut in cf.as_completed(futures):
+            r = fut.result()
+            results.append(r)
+            print_func(r)
+    finally:
+        executor.shutdown(wait=True)
+
+    return results
+
+
+def print_ranking(ok_results, top, extra_col_fn=None):
+    """打印排名表。extra_col_fn(r) 返回额外列字符串或 None。"""
+    ok = sorted(ok_results, key=lambda x: x["speed_mib"], reverse=True)
+    if top > 0:
+        ok = ok[:top]
+
+    print("")
+    print("=== Ranking by download speed  ===")
+    if extra_col_fn:
+        print("%-5s %-14s %-12s %s" % ("Rank", "Speed", "Latency", "Mirror"))
+    else:
+        print("%-5s %-14s %-12s %s" % ("Rank", "Speed", "Latency", "Mirror"))
+
+    for idx, r in enumerate(ok, 1):
+        extra = extra_col_fn(r) if extra_col_fn else ""
+        print(
+            "%-5d %-14s %-12s %s%s" %
+            (
+                idx,
+                "%.2f MiB/s" % r["speed_mib"],
+                "%.3fs" % r["latency"],
+                r["mirror"],
+                extra,
+            )
+        )
+
+    return ok
+
+
 # ── Main ──
 
 def main():
@@ -812,10 +865,7 @@ def main():
 
     if args.github:
         if not args.no_scrape:
-            sources = args.source
-            if not sources:
-                sources = GH_DEFAULT_SOURCES
-
+            sources = args.source if args.source else GH_DEFAULT_SOURCES
             for source in sources:
                 mirrors.update(scrape_gh_candidates(source, args.timeout, args.connect_timeout))
 
@@ -830,56 +880,23 @@ def main():
             print("没有找到候选镜像站。你可以用 --mirror 手动添加。")
             return
 
-        max_bytes = args.max_mb * 1024 * 1024
-        results = []
-
-        executor = cf.ThreadPoolExecutor(max_workers=args.workers)
-
-        try:
-            futures = []
-            for mirror in mirrors:
-                futures.append(
-                    executor.submit(test_gh_mirror, mirror, args.timeout, args.connect_timeout, max_bytes)
-                )
-
-            for fut in cf.as_completed(futures):
-                r = fut.result()
-                results.append(r)
-                print_gh_result_line(r)
-
-        finally:
-            executor.shutdown(wait=True)
+        results = run_concurrent_tests(
+            mirrors, test_gh_mirror, print_gh_result_line,
+            args.timeout, args.connect_timeout,
+            args.max_mb * 1024 * 1024, args.workers,
+        )
 
         ok = [x for x in results if x["ok"]]
         bad = [x for x in results if not x["ok"]]
 
-        ok.sort(key=lambda x: x["speed_mib"], reverse=True)
-        if args.top > 0:
-            ok = ok[:args.top]
+        ok = print_ranking(ok, args.top)
 
-        print("")
-        print("=== Ranking by download speed  ===" )
-        print("%-5s %-14s %-12s %s" % ("Rank", "Speed", "Latency", "Mirror"))
-
-        for idx, r in enumerate(ok, 1):
-            print(
-                "%-5d %-14s %-12s %s" %
-                (
-                    idx,
-                    "%.2f MiB/s" % r["speed_mib"],
-                    "%.3fs" % r["latency"],
-                    r["mirror"],
-                )
-            )
-
-        print("")
         if ok:
             r = ok[0]
             w1, gc = get_gh_usage(r["mirror"])
+            raw_url = "%s/https://raw.githubusercontent.com/samtools/samtools/refs/heads/develop/README.md" % r["mirror"]
             print("")
             print("=== Usage examples ===")
-            #print("%s" % r["mirror"])
-            raw_url = "%s/https://raw.githubusercontent.com/samtools/samtools/refs/heads/develop/README.md" % r["mirror"]
             print("%s" % w1)
             print("wget %s" % raw_url)
             print("%s" % gc)
@@ -887,13 +904,9 @@ def main():
     else:
         # ── Docker Hub mirror mode (default) ──
         if not args.no_scrape:
-            sources = args.source
-            if not sources:
-                sources = DEFAULT_SOURCES
-
+            sources = args.source if args.source else DEFAULT_SOURCES
             for source in sources:
                 mirrors.update(scrape_candidates(source, args.timeout, args.connect_timeout))
-
             for api_url in AITYP_API_SOURCES:
                 mirrors.update(scrape_aityp_api(api_url, args.timeout, args.connect_timeout))
 
@@ -908,61 +921,29 @@ def main():
             print("没有找到候选镜像站。你可以用 --mirror 手动添加。")
             return
 
-        max_bytes = args.max_mb * 1024 * 1024
-        results = []
+        def _docker_extra(r):
+            if r.get("ok2"):
+                return " | tetools: %.2f MiB/s" % r["speed2_mib"]
+            if r.get("error2"):
+                return " | tetools: FAIL"
+            return ""
 
-        executor = cf.ThreadPoolExecutor(max_workers=args.workers)
-
-        try:
-            futures = []
-            for mirror in mirrors:
-                futures.append(
-                    executor.submit(test_mirror, mirror, args.timeout, args.connect_timeout, max_bytes)
-                )
-
-            for fut in cf.as_completed(futures):
-                r = fut.result()
-                results.append(r)
-                print_result_line(r)
-
-        finally:
-            executor.shutdown(wait=True)
+        results = run_concurrent_tests(
+            mirrors, test_mirror, print_result_line,
+            args.timeout, args.connect_timeout,
+            args.max_mb * 1024 * 1024, args.workers,
+        )
 
         ok = [x for x in results if x["ok"]]
         bad = [x for x in results if not x["ok"]]
 
-        ok.sort(key=lambda x: x["speed_mib"], reverse=True)
-        if args.top > 0:
-            ok = ok[:args.top]
+        ok = print_ranking(ok, args.top, extra_col_fn=_docker_extra)
 
-        print("")
-        print("=== Ranking by download speed  ===" )
-        print("%-5s %-14s %-12s %s" % ("Rank", "Speed", "Latency", "Mirror"))
-
-        for idx, r in enumerate(ok, 1):
-            s2 = ""
-            if r["ok2"]:
-                s2 = " | tetools: %.2f MiB/s" % r["speed2_mib"]
-            elif r["error2"]:
-                s2 = " | tetools: FAIL"
-            print(
-                "%-5d %-14s %-12s %s%s" %
-                (
-                    idx,
-                    "%.2f MiB/s" % r["speed_mib"],
-                    "%.3fs" % r["latency"],
-                    r["mirror"],
-                    s2,
-                )
-            )
-
-        print("")
         if ok:
             r = ok[0]
             docker_cmd, singularity_cmd = get_pull_cmds(r["mirror"])
             print("")
             print("=== Usage examples ===")
-            #print("%s" % r["mirror"])
             print("docker pull:      %s" % docker_cmd)
             print("singularity pull: %s" % singularity_cmd)
 
