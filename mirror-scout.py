@@ -93,7 +93,7 @@ GH_TEST_URL = "https://github.com/samtools/samtools/releases/download/1.22.1/sam
 GH_TEST_FILE = "samtools-1.22.1.tar.bz2"
 
 GH_DEFAULT_SOURCES = [
-    "https://mirror.ghproxy.com",
+    #"https://mirror.ghproxy.com",
     "https://ghproxy.link",
     "https://github.akams.cn",
     "https://ghfast.top/https://raw.githubusercontent.com/XIU2/UserScript/master/GithubEnhanced-High-Speed-Download.user.js",
