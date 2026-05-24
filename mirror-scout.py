@@ -812,7 +812,7 @@ def main():
             ok = ok[:args.top]
 
         print("")
-        print("=== Ranking by download speed (showing top %d) ===" % len(ok))
+        print("=== Ranking by download speed  ===" % len(ok))
         print("%-5s %-14s %-12s %s" % ("Rank", "Speed", "Latency", "Mirror"))
 
         for idx, r in enumerate(ok, 1):
@@ -827,12 +827,14 @@ def main():
             )
 
         print("")
-        print("=== Usage examples for OK mirrors ===")
-        for idx, r in enumerate(ok, 1):
+        if ok:
+            r = ok[0]
             w1, gc = get_gh_usage(r["mirror"])
-            print("%-5d %s" % (idx, r["mirror"]))
-            print("     wget:      %s" % w1)
-            print("     git clone: %s" % gc)
+            print("")
+            print("=== Usage examples ===")
+            #print("%s" % r["mirror"])
+            print("wget:      %s" % w1)
+            print("git clone: %s" % gc)
 
     else:
         # ── Docker Hub mirror mode (default) ──
@@ -886,7 +888,7 @@ def main():
             ok = ok[:args.top]
 
         print("")
-        print("=== Ranking by download speed (showing top %d) ===" % len(ok))
+        print("=== Ranking by download speed  ===" % len(ok))
         print("%-5s %-14s %-12s %s" % ("Rank", "Speed", "Latency", "Mirror"))
 
         for idx, r in enumerate(ok, 1):
@@ -907,12 +909,14 @@ def main():
             )
 
         print("")
-        print("=== Pull commands for OK mirrors ===")
-        for idx, r in enumerate(ok, 1):
+        if ok:
+            r = ok[0]
             docker_cmd, singularity_cmd = get_pull_cmds(r["mirror"])
-            print("%-5d %s" % (idx, r["mirror"]))
-            print("     docker pull:      %s" % docker_cmd)
-            print("     singularity pull: %s" % singularity_cmd)
+            print("")
+            print("=== Usage examples ===")
+            #print("%s" % r["mirror"])
+            print("docker pull:      %s" % docker_cmd)
+            print("singularity pull: %s" % singularity_cmd)
 
     print("")
     print("OK: %d / FAIL: %d" % (len(ok), len(bad)))
