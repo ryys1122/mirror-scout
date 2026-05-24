@@ -68,6 +68,9 @@ DEFAULT_SOURCES = [
 #    "https://zhuanlan.zhihu.com/p/2025958413599798943",
 ]
 
+MIRROR_FILE_DOCKER = "mirrors-docker.txt"
+MIRROR_FILE_GITHUB = "mirrors-github.txt"
+
 AITYP_API_SOURCES = [
     "https://docker.aityp.com/api/v1/latest",
     "https://docker.aityp.com/api/v1/today",
@@ -648,6 +651,38 @@ def test_gh_mirror(mirror, timeout, connect_timeout, max_bytes):
     return result
 
 
+# ── 镜像文件读写 ──
+
+def load_mirror_file(path):
+    """读取镜像文件，返回有序 URL 列表（跳过空行和 # 注释）。"""
+    mirrors = []
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    mirrors.append(line)
+    except FileNotFoundError:
+        pass
+    return mirrors
+
+
+def save_mirror_file(path, ok_results, old_mirrors):
+    """写入镜像文件：旧文件中仍 ok 的保持原顺序在前，新发现的按速度降序在后。"""
+    ok_urls = {r["mirror"] for r in ok_results}
+    survivors = [m for m in old_mirrors if m in ok_urls]
+    survivors_set = set(survivors)
+    newcomers = [r for r in ok_results if r["mirror"] not in survivors_set]
+
+    with open(path, "w") as f:
+        for m in survivors:
+            f.write(m + "\n")
+        for r in newcomers:
+            f.write(r["mirror"] + "\n")
+
+    return len(survivors), len(newcomers)
+
+
 # ── Main ──
 
 def main():
@@ -725,6 +760,9 @@ def main():
 
     args = parser.parse_args()
 
+    mirror_file = MIRROR_FILE_GITHUB if args.github else MIRROR_FILE_DOCKER
+    old_mirrors = load_mirror_file(mirror_file)
+
     mirrors = set()
 
     # ── 加载自定义可靠镜像站 ──
@@ -751,6 +789,11 @@ def main():
             print("从 %s 加载了自定义可靠镜像站" % args.reliable_list)
         except Exception as e:
             print("读取自定义镜像站列表失败: %s" % e)
+
+    for mirror in old_mirrors:
+        nm = normalize_mirror(mirror)
+        if nm:
+            mirrors.add(nm)
 
     if args.no_scrape:
         # 仅测试 --mirror 和可靠列表，不抓取网页
@@ -922,6 +965,9 @@ def main():
 
     print("")
     print("OK: %d / FAIL: %d" % (len(ok), len(bad)))
+
+    n_survived, n_new = save_mirror_file(mirror_file, ok, old_mirrors)
+    print("Saved %d mirrors to %s (%d kept, +%d new)" % (n_survived + n_new, mirror_file, n_survived, n_new))
 
 
 if __name__ == "__main__":
