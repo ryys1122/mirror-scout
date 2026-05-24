@@ -833,10 +833,10 @@ def main():
             print("")
             print("=== Usage examples ===")
             #print("%s" % r["mirror"])
-            raw_url = "%s/https://raw.githubusercontent.com/ryys1122/mirror-scout/main/mirror-scout.py" % r["mirror"]
-            print("wget:      %s" % w1)
-            print("git clone: %s" % gc)
-            print("this tool: wget %s" % raw_url)
+            raw_url = "%s/https://raw.githubusercontent.com/samtools/samtools/refs/heads/develop/README.md" % r["mirror"]
+            print("%s" % w1)
+            print("wget %s" % raw_url)
+            print("%s" % gc)
 
     else:
         # ── Docker Hub mirror mode (default) ──
@@ -919,7 +919,6 @@ def main():
             #print("%s" % r["mirror"])
             print("docker pull:      %s" % docker_cmd)
             print("singularity pull: %s" % singularity_cmd)
-            print("this tool: wget https://raw.githubusercontent.com/ryys1122/mirror-scout/main/mirror-scout.py")
 
     print("")
     print("OK: %d / FAIL: %d" % (len(ok), len(bad)))
