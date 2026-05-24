@@ -81,7 +81,7 @@ RELIABLE_DOCKER_MIRRORS = [
 
 RELIABLE_GH_MIRRORS = [
     "https://ghfast.top",
-    "https://mirror.ghproxy.com",
+    #"https://mirror.ghproxy.com",
     "https://wget.la"
 ]
 
