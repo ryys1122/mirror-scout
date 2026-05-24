@@ -337,7 +337,7 @@ def get_auth_token(mirror, image, timeout):
     realm, service, scope = parts[0], parts[1], parts[2]
 
     try:
-        r2 = requests.get(
+        r2 = _session.get(
             realm,
             params={"service": service, "scope": scope},
             timeout=timeout,
@@ -358,7 +358,7 @@ def get_manifest(mirror, image, timeout):
         req_headers["Authorization"] = "Bearer %s" % token
 
     start = time.time()
-    r = requests.get(
+    r = _session.get(
         url,
         headers=req_headers,
         timeout=timeout,
@@ -411,7 +411,7 @@ def fetch_manifest_by_digest(mirror, image, digest, timeout, token=None):
     if token:
         req_headers["Authorization"] = "Bearer %s" % token
 
-    r = requests.get(
+    r = _session.get(
         url,
         headers=req_headers,
         timeout=timeout,
@@ -454,7 +454,7 @@ def download_blob_speed(mirror, image, digest, timeout, max_bytes, token=None):
     start = time.time()
     downloaded = 0
 
-    r = requests.get(
+    r = _session.get(
         url,
         stream=True,
         timeout=timeout,
