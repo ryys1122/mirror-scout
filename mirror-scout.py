@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
-
 import argparse
 import concurrent.futures as cf
 import json
+import logging
 import re
 import socket
+import sys
 import threading
 import time
 from urllib.parse import urlparse
@@ -17,7 +17,7 @@ try:
     from requests.adapters import HTTPAdapter
     from urllib3.util.retry import Retry
 except ImportError:
-    print("缺少 requests，请先运行：pip install requests")
+    logging.error("缺少 requests，请先运行：pip install requests")
     raise
 
 # 禁用 requests 自动重试
@@ -146,7 +146,7 @@ def _scrape_url_for_mirrors(source_url, timeout, connect_timeout, host_blacklist
         )
         r.raise_for_status()
     except Exception as e:
-        print("抓取%s失败: %s -> %s" % (label, source_url, e))
+        logging.warning("抓取%s失败: %s -> %s", label, source_url, e)
         return mirrors
 
     text = r.text
@@ -215,7 +215,7 @@ def scrape_aityp_api(api_url, timeout, connect_timeout=3):
         r.raise_for_status()
         data = r.json()
     except Exception as e:
-        print("抓取 AITYP API 失败: %s -> %s" % (api_url, e))
+        logging.warning("抓取 AITYP API 失败: %s -> %s", api_url, e)
         return mirrors
 
     if isinstance(data, dict):
@@ -810,6 +810,12 @@ def main():
 
     args = parser.parse_args()
 
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s: %(message)s",
+        stream=sys.stdout,
+    )
+
     mirror_file = MIRROR_FILE_GITHUB if args.github else MIRROR_FILE_DOCKER
     old_mirrors = load_mirror_file(mirror_file)
 
@@ -836,9 +842,9 @@ def main():
                         nm = normalize_mirror(line)
                         if nm:
                             mirrors.add(nm)
-            print("从 %s 加载了自定义可靠镜像站" % args.reliable_list)
+            logging.info("从 %s 加载了自定义可靠镜像站", args.reliable_list)
         except Exception as e:
-            print("读取自定义镜像站列表失败: %s" % e)
+            logging.warning("读取自定义镜像站列表失败: %s", e)
 
     for mirror in old_mirrors:
         nm = normalize_mirror(mirror)
@@ -865,13 +871,12 @@ def main():
 
         mirrors = sorted(mirrors)
 
-        print("Found %d candidate GitHub mirrors" % len(mirrors))
-        print("Test file: %s" % GH_TEST_FILE)
-        print("Max download per mirror: %d MB" % args.max_mb)
-        print("")
+        logging.info("Found %d candidate GitHub mirrors", len(mirrors))
+        logging.info("Test file: %s", GH_TEST_FILE)
+        logging.info("Max download per mirror: %d MB", args.max_mb)
 
         if not mirrors:
-            print("没有找到候选镜像站。你可以用 --mirror 手动添加。")
+            logging.warning("没有找到候选镜像站。你可以用 --mirror 手动添加。")
             return
 
         results = run_concurrent_tests(
@@ -906,13 +911,12 @@ def main():
 
         mirrors = sorted(mirrors)
 
-        print("Found %d candidate mirrors" % len(mirrors))
-        print("Test image: %s:%s" % (TEST_IMAGE, TEST_TAG))
-        print("Max download per mirror: %d MB" % args.max_mb)
-        print("")
+        logging.info("Found %d candidate mirrors", len(mirrors))
+        logging.info("Test image: %s:%s", TEST_IMAGE, TEST_TAG)
+        logging.info("Max download per mirror: %d MB", args.max_mb)
 
         if not mirrors:
-            print("没有找到候选镜像站。你可以用 --mirror 手动添加。")
+            logging.warning("没有找到候选镜像站。你可以用 --mirror 手动添加。")
             return
 
         def _docker_extra(r):
@@ -941,11 +945,10 @@ def main():
             print("docker pull:      %s" % docker_cmd)
             print("singularity pull: %s" % singularity_cmd)
 
-    print("")
-    print("OK: %d / FAIL: %d" % (len(ok), len(bad)))
+    logging.info("OK: %d / FAIL: %d", len(ok), len(bad))
 
     n_survived, n_new = save_mirror_file(mirror_file, ok, old_mirrors)
-    print("Saved %d mirrors to %s (%d kept, +%d new)" % (n_survived + n_new, mirror_file, n_survived, n_new))
+    logging.info("Saved %d mirrors to %s (%d kept, +%d new)", n_survived + n_new, mirror_file, n_survived, n_new)
 
 
 if __name__ == "__main__":
