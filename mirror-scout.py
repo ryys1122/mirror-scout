@@ -111,7 +111,7 @@ AUTH_RE = re.compile(r'(?:realm|service|scope)="([^"]*)"')
 
 
 def normalize_mirror(url):
-    url = url.strip().rstrip(".,;，。)）]】>\"'")
+    url = url.strip().strip("~").rstrip(".,;，。)）]】>\"'")
     if not url:
         return None
 
